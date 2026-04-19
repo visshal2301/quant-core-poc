@@ -13,15 +13,15 @@ The POC uses:
 
 ## Deliverables
 
-- Architecture and solution design: [docs/solution-architecture.md](C:\Users\DELL\Documents\Codex\2026-04-19-i-am-createing-a-poc-on\quant-core-poc\docs\solution-architecture.md)
-- Presentation-ready summary: [docs/presentation-outline.md](C:\Users\DELL\Documents\Codex\2026-04-19-i-am-createing-a-poc-on\quant-core-poc\docs\presentation-outline.md)
-- Runtime configuration: [config/quant_core_config.yaml](C:\Users\DELL\Documents\Codex\2026-04-19-i-am-createing-a-poc-on\quant-core-poc\config\quant_core_config.yaml)
-- Mock data generator: [scripts/generate_mock_data.py](C:\Users\DELL\Documents\Codex\2026-04-19-i-am-createing-a-poc-on\quant-core-poc\scripts\generate_mock_data.py)
+- Architecture and solution design: [docs/solution-architecture.md]
+- Presentation-ready summary: [docs/presentation-outline.md]
+- Runtime configuration: [config/quant_core_config.yaml]
+- Mock data generator: [scripts/generate_mock_data.py]
 - Databricks notebooks:
-  - [notebooks/00_setup/00_environment_setup.py](C:\Users\DELL\Documents\Codex\2026-04-19-i-am-createing-a-poc-on\quant-core-poc\notebooks\00_setup\00_environment_setup.py)
-  - [notebooks/01_ingest_bronze/01_bronze_ingestion.py](C:\Users\DELL\Documents\Codex\2026-04-19-i-am-createing-a-poc-on\quant-core-poc\notebooks\01_ingest_bronze\01_bronze_ingestion.py)
-  - [notebooks/02_transform_silver/02_silver_transformation.py](C:\Users\DELL\Documents\Codex\2026-04-19-i-am-createing-a-poc-on\quant-core-poc\notebooks\02_transform_silver\02_silver_transformation.py)
-  - [notebooks/03_publish_gold/03_gold_calculations.py](C:\Users\DELL\Documents\Codex\2026-04-19-i-am-createing-a-poc-on\quant-core-poc\notebooks\03_publish_gold\03_gold_calculations.py)
+  - [notebooks/00_setup/00_environment_setup.py]
+  - [notebooks/01_ingest_bronze/01_bronze_ingestion.py]
+  - [notebooks/02_transform_silver/02_silver_transformation.py]
+  - [notebooks/03_publish_gold/03_gold_calculations.py])
 
 ## Proposed execution flow
 
