@@ -1,0 +1,53 @@
+project_name: quant_core
+catalog: quant_core
+schemas:
+  landing: landing
+  bronze: bronze
+  silver: silver
+  gold: gold
+  audit: audit
+volume_base_path: /Volumes/quant_core/landing/mock_data
+paths:
+  dimensions: /Volumes/quant_core/landing/mock_data/dimensions
+  transactions: /Volumes/quant_core/landing/mock_data/transactions
+  positions_daily: /Volumes/quant_core/landing/mock_data/positions_daily
+  market_prices_daily: /Volumes/quant_core/landing/mock_data/market_prices_daily
+  cashflows: /Volumes/quant_core/landing/mock_data/cashflows
+runtime:
+  lookback_years_prices: 3
+  lookback_years_transactions: 1
+  open_ended_timestamp: 9999-12-31 23:59:59
+  var_confidence_levels:
+    - 0.95
+    - 0.99
+  var_horizon_days: 1
+  stress_window_start: 2024-09-01
+  stress_window_end: 2024-11-30
+temporal:
+  valid_time_strategy:
+    transactions: trade_dt_to_open_end
+    positions_daily: position_dt_day_window
+    market_prices_daily: price_dt_day_window
+    cashflows: cashflow_dt_to_open_end
+    dimensions: effective_start_to_open_end
+  system_time_strategy:
+    source: ingestion_timestamp
+    close_previous_version_on_change: true
+  query_defaults:
+    use_current_valid_only: true
+    use_current_system_only: true
+dimensions:
+  portfolios: 10
+  instruments: 50
+  counterparties: 12
+  currencies:
+    - USD
+    - EUR
+    - GBP
+    - INR
+  asset_classes:
+    - EQUITY
+    - BOND
+    - ETF
+    - MUTUAL_FUND
+    - DERIVATIVE
