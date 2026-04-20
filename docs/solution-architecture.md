@@ -30,6 +30,8 @@ The design is upgraded to a bi-temporal model so that both business validity and
 1. Source simulation layer
 - Python-based generators create CSV files for facts and dimensions.
 - Files are written to Databricks Volumes under a controlled folder layout.
+- Fact datasets are organized as `dataset/YYYYMM/<dataset>_YYYYMMDD.csv`.
+- Dimension snapshots are organized as `dimensions/YYYYMM/<dimension>.csv`.
 
 2. Bronze layer
 - Raw files are ingested with minimal transformations.
@@ -506,17 +508,17 @@ quant-core-poc/
   - `/Volumes/quant_core/landing/mock_data/`
 
 Example landing folders:
-- `/Volumes/quant_core/landing/mock_data/transactions/`
-- `/Volumes/quant_core/landing/mock_data/positions_daily/`
-- `/Volumes/quant_core/landing/mock_data/market_prices_daily/`
-- `/Volumes/quant_core/landing/mock_data/cashflows/`
-- `/Volumes/quant_core/landing/mock_data/dimensions/`
+- `/Volumes/quant_core/landing/mock_data/transactions/202604/`
+- `/Volumes/quant_core/landing/mock_data/positions_daily/202604/`
+- `/Volumes/quant_core/landing/mock_data/market_prices_daily/202604/`
+- `/Volumes/quant_core/landing/mock_data/cashflows/202604/`
+- `/Volumes/quant_core/landing/mock_data/dimensions/202604/`
 
 ## 11. Execution flow
 
 1. Provision base schemas and volume paths.
-2. Run data generator to create mock files in volume landing folders.
-3. Ingest raw files into Bronze with audit metadata.
+2. Run data generator for a target `YYYYMM` to create daily files under the month folder.
+3. Ingest raw files for the same `YYYYMM` into Bronze with audit metadata.
 4. Transform Bronze to Silver dimensions and facts.
 5. Publish Gold risk and performance outputs.
 6. Create SQL views for reporting.

@@ -8,11 +8,16 @@ schemas:
   audit: audit
 volume_base_path: /Volumes/quant_core/landing/mock_data
 paths:
-  dimensions: /Volumes/quant_core/landing/mock_data/dimensions
-  transactions: /Volumes/quant_core/landing/mock_data/transactions
-  positions_daily: /Volumes/quant_core/landing/mock_data/positions_daily
-  market_prices_daily: /Volumes/quant_core/landing/mock_data/market_prices_daily
-  cashflows: /Volumes/quant_core/landing/mock_data/cashflows
+  dimensions: /Volumes/quant_core/landing/mock_data/dimensions/{yyyymm}
+  transactions: /Volumes/quant_core/landing/mock_data/transactions/{yyyymm}
+  positions_daily: /Volumes/quant_core/landing/mock_data/positions_daily/{yyyymm}
+  market_prices_daily: /Volumes/quant_core/landing/mock_data/market_prices_daily/{yyyymm}
+  cashflows: /Volumes/quant_core/landing/mock_data/cashflows/{yyyymm}
+landing:
+  folder_pattern: dataset/YYYYMM
+  fact_file_pattern: "<dataset>_YYYYMMDD.csv"
+  dimension_snapshot_pattern: dimensions/YYYYMM/<table>.csv
+  overwrite_existing_month_for_poc: true
 runtime:
   lookback_years_prices: 3
   lookback_years_transactions: 1

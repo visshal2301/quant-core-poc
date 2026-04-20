@@ -6,6 +6,7 @@ The POC uses:
 - Medallion architecture (`bronze`, `silver`, `gold`)
 - bi-temporal schema design (`valid time` and `system time`)
 - Databricks Volumes for mock source files
+- monthly landing folders using `YYYYMM` plus daily fact files
 - Delta tables for curated layers
 - Mixed portfolio sample data
 - Historical simulation for `VaR` and `SVaR`
@@ -17,6 +18,7 @@ The POC uses:
 - Presentation-ready summary: [docs/presentation-outline.md]
 - Runtime configuration: [config/quant_core_config.yaml]
 - Mock data generator: [scripts/generate_mock_data.py]
+- Landing-folder and enterprise-pattern note: [docs/landing-pattern.md]
 - Databricks notebooks:
   - [notebooks/00_setup/00_environment_setup.py]
   - [notebooks/01_ingest_bronze/01_bronze_ingestion.py]
@@ -26,8 +28,8 @@ The POC uses:
 ## Proposed execution flow
 
 1. Run environment setup notebook.
-2. Upload or generate mock source files in Databricks Volume paths.
-3. Run Bronze ingestion notebook to land raw files into Delta Bronze tables with ingestion-time lineage.
+2. Generate mock source files for a target `YYYYMM` in Databricks Volume paths.
+3. Run Bronze ingestion notebook with the same `target_yyyymm` to land one source month into Delta Bronze tables with ingestion-time lineage.
 4. Run Silver transformation notebook to standardize, validate, enrich, and stamp bi-temporal validity windows on facts and dimensions.
 5. Run Gold calculations notebook to publish risk and performance marts plus point-in-time query views.
 

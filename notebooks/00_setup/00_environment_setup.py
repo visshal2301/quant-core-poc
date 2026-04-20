@@ -39,3 +39,4 @@ for volume_path in VOLUME_PATHS:
     print(f"Directory created: {volume_path}")
 
 print("\nQuant Core schemas, volumes, and folders are ready.")
+print("Fact landing folders expect month subfolders such as YYYYMM, for example /transactions/202604/.")
