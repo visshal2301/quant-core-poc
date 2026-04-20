@@ -17,7 +17,7 @@ VOLUME_PATHS = [
 # COMMAND ----------
 
 # DBTITLE 1,Create Catalog
-# Create the catalog first
+# Create the catalog
 spark.sql(f"CREATE CATALOG IF NOT EXISTS {CATALOG}")
 print(f"Catalog '{CATALOG}' created successfully.")
 
