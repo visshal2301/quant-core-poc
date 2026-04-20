@@ -16,11 +16,26 @@ VOLUME_PATHS = [
 
 # COMMAND ----------
 
+# DBTITLE 1,Create Catalog
+# Create the catalog first
+spark.sql(f"CREATE CATALOG IF NOT EXISTS {CATALOG}")
+print(f"Catalog '{CATALOG}' created successfully.")
+
+# COMMAND ----------
+
+# DBTITLE 1,Cell 3
+# Step 1: Create schemas
 for schema_name in SCHEMAS:
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {CATALOG}.{schema_name}")
+    print(f"Schema '{schema_name}' created.")
 
+# Step 2: Create volumes (mock_data volume in landing schema)
+spark.sql(f"CREATE VOLUME IF NOT EXISTS {CATALOG}.landing.mock_data")
+print("Volume 'mock_data' created in 'landing' schema.")
+
+# Step 3: Create subdirectories within the volume
 for volume_path in VOLUME_PATHS:
     dbutils.fs.mkdirs(volume_path)
+    print(f"Directory created: {volume_path}")
 
-print("Quant Core schemas and volume folders are ready.")
-
+print("\nQuant Core schemas, volumes, and folders are ready.")

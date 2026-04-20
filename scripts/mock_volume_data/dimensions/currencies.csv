@@ -1,0 +1,5 @@
+currency_code,currency_name,decimal_precision
+USD,USD,2
+EUR,EUR,2
+GBP,GBP,2
+INR,INR,2

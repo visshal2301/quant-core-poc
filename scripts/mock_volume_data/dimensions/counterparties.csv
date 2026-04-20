@@ -1,0 +1,13 @@
+counterparty_id,counterparty_name,counterparty_type,country_code,credit_rating
+CP001,Counterparty 1,BROKER,US,AAA
+CP002,Counterparty 2,CUSTODIAN,IN,AAA
+CP003,Counterparty 3,BROKER,GB,AA
+CP004,Counterparty 4,BANK,DE,AA
+CP005,Counterparty 5,CUSTODIAN,GB,A
+CP006,Counterparty 6,CUSTODIAN,GB,AAA
+CP007,Counterparty 7,CUSTODIAN,US,AAA
+CP008,Counterparty 8,BANK,US,AAA
+CP009,Counterparty 9,BROKER,GB,BBB
+CP010,Counterparty 10,CUSTODIAN,DE,AA
+CP011,Counterparty 11,CUSTODIAN,US,AA
+CP012,Counterparty 12,CUSTODIAN,US,BBB

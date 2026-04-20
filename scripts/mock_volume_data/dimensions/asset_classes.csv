@@ -1,0 +1,6 @@
+asset_class_code,asset_class_name,risk_bucket
+EQUITY,Equity,EQUITY
+BOND,Bond,BOND
+ETF,Etf,ETF
+MUTUAL_FUND,Mutual_Fund,MUTUAL_FUND
+DERIVATIVE,Derivative,DERIVATIVE

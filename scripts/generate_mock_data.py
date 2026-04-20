@@ -228,13 +228,21 @@ def generate_transactions_positions_cashflows(config: Config, folders: dict[str,
 
 def main() -> None:
     random.seed(42)
-    base_dir = Path("mock_volume_data")
+    # Updated to use Unity Catalog volume path
+    base_dir = Path("/Volumes/quant_core/landing/mock_data")
     config = Config(base_dir=base_dir)
     folders = ensure_dirs(config.base_dir)
+    print("Generating dimension data...")
     generate_dimensions(config, folders)
+    print("Generating market prices (this may take a few minutes)...")
     market_prices = generate_market_prices(config, folders)
+    print("Generating transactions, positions, and cashflows...")
     generate_transactions_positions_cashflows(config, folders, market_prices)
-    print(f"Mock data generated under: {config.base_dir.resolve()}")
+    print(f"\n✓ Mock data generated successfully in Unity Catalog volume!")
+    print(f"  Location: {config.base_dir}")
+    print(f"  - Dimensions: 6 files")
+    print(f"  - Market prices: {len(market_prices):,} rows")
+    print(f"  - Transactions, positions, and cashflows generated")
 
 
 if __name__ == "__main__":
