@@ -52,6 +52,10 @@ The model is built around:
 - dimension tables, which describe business entities
 - fact tables, which capture measurable business events and balances
 
+In the current implementation:
+- `dim_portfolio`, `dim_instrument`, and `dim_counterparty` use `SCD Type 2`
+- other reference dimensions are treated as current-state curated snapshots
+
 This is important because financial analytics works best when:
 - descriptive context is separated from measurable activity
 - calculations can join facts to conformed dimensions
@@ -80,6 +84,10 @@ Typical business questions answered:
 - what is the reporting currency for this portfolio
 - which portfolios follow which risk policies
 
+History handling:
+- implemented as `SCD Type 2`
+- if portfolio attributes change, the previous version is expired and a new current row is inserted
+
 ### `dim_instrument`
 
 Business meaning:
@@ -105,6 +113,10 @@ Typical business questions answered:
 - which instruments belong to a particular asset class
 - which holdings are bonds versus equities versus ETFs
 
+History handling:
+- implemented as `SCD Type 2`
+- this is important because classification, issuer details, and other attributes may change over time
+
 ### `dim_counterparty`
 
 Business meaning:
@@ -117,6 +129,10 @@ Why it matters:
 Typical business questions answered:
 - which counterparty executed a trade
 - how much activity is routed through a given broker or bank
+
+History handling:
+- implemented as `SCD Type 2`
+- supports historical analysis of counterparty attributes and risk context
 
 ### `dim_currency`
 
@@ -353,11 +369,13 @@ What happens here:
 - source file metadata is captured
 - ingestion timestamps and load identifiers are added
 - raw content is preserved before business correction
+- light schema drift is tolerated so newly arriving source columns do not immediately break ingestion
 
 Business value:
 - creates an audit trail
 - allows us to trace Gold numbers back to the files that created them
 - supports operational troubleshooting and reruns
+- reduces operational risk when source files evolve gradually
 
 ### 3. Silver layer
 

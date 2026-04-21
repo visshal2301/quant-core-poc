@@ -84,6 +84,8 @@ if "dbutils" in globals():
 else:
     TARGET_YYYYMM = "202601"
 
+spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", "true")
+
 
 def resolve_monthly_path(dataset: str) -> str:
     return f"{LANDING_BASE}/{dataset}/{TARGET_YYYYMM}/*.csv"
@@ -93,11 +95,33 @@ def resolve_dimension_path(table_name: str) -> str:
     return f"{LANDING_BASE}/dimensions/{TARGET_YYYYMM}/{table_name}.csv"
 
 
-def ingest_csv_to_bronze(source_path: str, target_table: str) -> None:
+def table_exists(table_name: str) -> bool:
+    return spark.catalog.tableExists(f"{BRONZE_SCHEMA}.{table_name}")
+
+
+def align_to_existing_bronze_schema(df, target_table: str):
+    if not table_exists(target_table):
+        return df
+
+    target_df = spark.table(f"{BRONZE_SCHEMA}.{target_table}")
+    target_columns = target_df.columns
+    source_columns = df.columns
+
+    for column_name in target_columns:
+        if column_name not in source_columns:
+            target_type = target_df.schema[column_name].dataType
+            df = df.withColumn(column_name, F.lit(None).cast(target_type))
+
+    return df.select(*sorted(df.columns))
+
+
+def ingest_csv_to_bronze(source_path: str, target_table: str, expected_grain: str) -> None:
     df = (
         spark.read.format("csv")
         .option("header", "true")
         .option("inferSchema", "true")
+        .option("mode", "PERMISSIVE")
+        .option("columnNameOfCorruptRecord", "_corrupt_record")
         .load(source_path)
         .withColumn("ingestion_ts", F.current_timestamp())
         .withColumn("source_file_path", F.col("_metadata.file_path"))
@@ -110,21 +134,53 @@ def ingest_csv_to_bronze(source_path: str, target_table: str) -> None:
         .withColumn("change_type", F.lit("INSERT"))
         .withColumn("is_current_system", F.lit(True))
         .withColumn("source_yyyymm", F.lit(TARGET_YYYYMM))
+        .withColumn("expected_grain", F.lit(expected_grain))
+        .withColumn("schema_drift_captured_ts", F.current_timestamp())
+        .withColumn("is_corrupt_record", F.col("_corrupt_record").isNotNull())
     )
-    df.write.format("delta").mode("overwrite").saveAsTable(f"{BRONZE_SCHEMA}.{target_table}")
+    drift_columns = [
+        column_name
+        for column_name in df.columns
+        if column_name
+        not in {
+            "_corrupt_record",
+            "ingestion_ts",
+            "source_file_path",
+            "source_file_name",
+            "load_id",
+            "record_hash",
+            "system_from_ts",
+            "system_to_ts",
+            "record_version",
+            "change_type",
+            "is_current_system",
+            "source_yyyymm",
+            "expected_grain",
+            "schema_drift_captured_ts",
+            "is_corrupt_record",
+        }
+    ]
+    df = df.withColumn("source_column_list", F.array_sort(F.array(*[F.lit(column_name) for column_name in drift_columns])))
+    df = align_to_existing_bronze_schema(df, target_table)
+    (
+        df.write.format("delta")
+        .option("mergeSchema", "true")
+        .mode("overwrite")
+        .saveAsTable(f"{BRONZE_SCHEMA}.{target_table}")
+    )
 
 # COMMAND ----------
 
-ingest_csv_to_bronze(resolve_monthly_path("transactions"), "transactions_raw")
-ingest_csv_to_bronze(resolve_monthly_path("positions_daily"), "positions_daily_raw")
-ingest_csv_to_bronze(resolve_monthly_path("market_prices_daily"), "market_prices_daily_raw")
-ingest_csv_to_bronze(resolve_monthly_path("cashflows"), "cashflows_raw")
-ingest_csv_to_bronze(resolve_dimension_path("portfolios"), "portfolios_raw")
-ingest_csv_to_bronze(resolve_dimension_path("instruments"), "instruments_raw")
-ingest_csv_to_bronze(resolve_dimension_path("counterparties"), "counterparties_raw")
-ingest_csv_to_bronze(resolve_dimension_path("currencies"), "currencies_raw")
-ingest_csv_to_bronze(resolve_dimension_path("asset_classes"), "asset_classes_raw")
-ingest_csv_to_bronze(resolve_dimension_path("market_data_sources"), "market_data_sources_raw")
+ingest_csv_to_bronze(resolve_monthly_path("transactions"), "transactions_raw", "transaction")
+ingest_csv_to_bronze(resolve_monthly_path("positions_daily"), "positions_daily_raw", "daily_position")
+ingest_csv_to_bronze(resolve_monthly_path("market_prices_daily"), "market_prices_daily_raw", "daily_market_price")
+ingest_csv_to_bronze(resolve_monthly_path("cashflows"), "cashflows_raw", "cashflow")
+ingest_csv_to_bronze(resolve_dimension_path("portfolios"), "portfolios_raw", "dimension_snapshot")
+ingest_csv_to_bronze(resolve_dimension_path("instruments"), "instruments_raw", "dimension_snapshot")
+ingest_csv_to_bronze(resolve_dimension_path("counterparties"), "counterparties_raw", "dimension_snapshot")
+ingest_csv_to_bronze(resolve_dimension_path("currencies"), "currencies_raw", "dimension_snapshot")
+ingest_csv_to_bronze(resolve_dimension_path("asset_classes"), "asset_classes_raw", "dimension_snapshot")
+ingest_csv_to_bronze(resolve_dimension_path("market_data_sources"), "market_data_sources_raw", "dimension_snapshot")
 
 print(f"Bronze ingestion complete for source month {TARGET_YYYYMM}.")
 

@@ -5,6 +5,8 @@
 The POC uses:
 - Medallion architecture (`bronze`, `silver`, `gold`)
 - bi-temporal schema design (`valid time` and `system time`)
+- `SCD Type 2` for core dimensions
+- schema-drift-aware Bronze ingestion
 - Databricks Volumes for mock source files
 - monthly landing folders using `YYYYMM` plus daily fact files
 - Delta tables for curated layers
@@ -30,8 +32,8 @@ The POC uses:
 1. Run environment setup notebook.
 2. Generate mock source files for a target `YYYYMM` in Databricks Volume paths.
 3. Run Bronze ingestion notebook with the same `target_yyyymm` to land one source month into Delta Bronze tables with ingestion-time lineage.
-4. Run Silver transformation notebook to standardize, validate, enrich, and stamp bi-temporal validity windows on facts and dimensions.
-5. Run Gold calculations notebook to publish risk and performance marts plus point-in-time query views.
+4. Run Silver transformation notebook with the same `target_yyyymm` to standardize, validate, enrich, and stamp bi-temporal validity windows on facts and dimensions.
+5. Run Gold calculations notebook with the same `target_yyyymm` to publish risk and performance marts plus point-in-time query views.
 
 ## Bi-temporal design
 
@@ -44,6 +46,12 @@ This enables:
 - late-arriving changes
 - as-of reporting for business time
 - as-known reporting for audit and traceability
+
+## History and drift handling
+
+- Bronze accepts monthly source files with light schema drift handling and writes the latest discovered schema into Delta.
+- Silver implements `SCD2` for `dim_portfolio`, `dim_instrument`, and `dim_counterparty`.
+- Static reference dimensions are still rebuilt as curated snapshots in this POC.
 
 ## Enterprise refactor path
 

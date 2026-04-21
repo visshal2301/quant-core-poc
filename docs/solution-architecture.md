@@ -38,6 +38,7 @@ The design is upgraded to a bi-temporal model so that both business validity and
 - Schema capture, ingestion timestamps, source file names, load IDs, and raw lineage are preserved.
 - Bronze tables are append-only and auditable.
 - Bronze establishes `system time` entry points through ingestion metadata.
+- Bronze tolerates light schema drift by preserving existing columns and merging newly discovered source columns into the raw Delta shape.
 
 3. Silver layer
 - Standardize data types, date handling, null rules, and business keys.
@@ -45,6 +46,7 @@ The design is upgraded to a bi-temporal model so that both business validity and
 - Apply validations, deduplication, survivorship rules, and business enrichment.
 - Stamp each curated record with `valid time` and `system time` windows.
 - Preserve prior versions for corrections and restatements instead of overwriting history.
+- Core business dimensions use `SCD Type 2` so attribute changes create a new current version and expire the previous one.
 
 4. Gold layer
 - Publish finance-ready marts and calculation outputs.
@@ -135,6 +137,7 @@ Silver enrichment examples:
 - enforce date and business key standards
 - persist prior versions for corrected records
 - allow late-arriving and backdated effective changes
+- maintain `SCD2` history for portfolio, instrument, and counterparty attributes
 
 ### Gold
 
@@ -176,6 +179,7 @@ Common access views:
 - `is_current_system`
 - `record_version`
 - `change_type`
+- `attribute_hash`
 
 #### `dim_instrument`
 - `instrument_sk`
@@ -199,6 +203,7 @@ Common access views:
 - `is_current_system`
 - `record_version`
 - `change_type`
+- `attribute_hash`
 
 #### `dim_counterparty`
 - `counterparty_sk`
@@ -215,6 +220,7 @@ Common access views:
 - `is_current_system`
 - `record_version`
 - `change_type`
+- `attribute_hash`
 
 #### `dim_currency`
 - `currency_sk`
@@ -453,6 +459,7 @@ This gives the POC a controlled but realistic historical stress window.
 - duplicate transaction detection
 - invalid date and currency checks
 - rejected-record handling
+- schema drift capture at Bronze with newly discovered columns preserved for downstream review
 
 ### Operational controls
 
@@ -548,6 +555,8 @@ This answers:
 - mock data generator
 - manual execution order
 - Delta outputs and simple SQL views
+- SCD2 only on selected core dimensions
+- light schema drift handling at Bronze
 
 ### Phase 2: Enterprise hardening
 - move business logic into reusable Python packages

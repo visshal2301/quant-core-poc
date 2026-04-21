@@ -16,6 +16,12 @@ CONFIDENCE_LEVELS = [0.95, 0.99]
 STRESS_WINDOW_START = "2024-09-01"
 STRESS_WINDOW_END = "2024-11-30"
 
+if "dbutils" in globals():
+    dbutils.widgets.text("target_yyyymm", "202601")
+    TARGET_YYYYMM = dbutils.widgets.get("target_yyyymm")
+else:
+    TARGET_YYYYMM = "202601"
+
 
 def current_bitemporal(df, business_col: str, system_col: str = "system_from_ts"):
     now_ts = F.current_timestamp()
@@ -81,8 +87,12 @@ xirr_udf = F.udf(lambda arr: xirr(arr) if arr else None, DoubleType())
 
 
 def publish_var_results() -> None:
-    positions = current_bitemporal(spark.table(f"{SILVER}.fact_positions_daily"), "position_dt")
-    prices = current_bitemporal(spark.table(f"{SILVER}.fact_market_prices_daily"), "system_from_ts")
+    positions = current_bitemporal(spark.table(f"{SILVER}.fact_positions_daily"), "position_dt").where(
+        F.col("position_yyyymm") == F.lit(TARGET_YYYYMM)
+    )
+    prices = current_bitemporal(spark.table(f"{SILVER}.fact_market_prices_daily"), "system_from_ts").where(
+        F.col("price_yyyymm") == F.lit(TARGET_YYYYMM)
+    )
 
     pnl_distribution = (
         positions.alias("p")
@@ -110,6 +120,7 @@ def publish_var_results() -> None:
             )
             .withColumn("confidence_level", F.lit(confidence_level))
             .withColumn("holding_period_days", F.lit(1))
+            .withColumn("result_yyyymm", F.lit(TARGET_YYYYMM))
             .withColumn("var_amount", -1 * F.col("loss_threshold"))
             .withColumn("var_pct_market_value", F.col("var_amount") / F.col("portfolio_market_value"))
             .select(
@@ -119,6 +130,7 @@ def publish_var_results() -> None:
                 "system_as_of_ts",
                 "confidence_level",
                 "holding_period_days",
+                "result_yyyymm",
                 "simulations_count",
                 "var_amount",
                 "var_pct_market_value",
@@ -144,6 +156,7 @@ def publish_svar_results() -> None:
             .withColumn("confidence_level", F.lit(confidence_level))
             .withColumn("stress_window_start_dt", F.to_date(F.lit(STRESS_WINDOW_START)))
             .withColumn("stress_window_end_dt", F.to_date(F.lit(STRESS_WINDOW_END)))
+            .withColumn("result_yyyymm", F.lit(TARGET_YYYYMM))
             .withColumn("svar_amount", -1 * F.col("loss_threshold"))
             .withColumn("svar_pct_market_value", F.col("svar_amount") / F.col("portfolio_market_value"))
             .select(
@@ -154,6 +167,7 @@ def publish_svar_results() -> None:
                 "stress_window_start_dt",
                 "stress_window_end_dt",
                 "confidence_level",
+                "result_yyyymm",
                 "svar_amount",
                 "svar_pct_market_value",
             )
@@ -163,8 +177,12 @@ def publish_svar_results() -> None:
 
 
 def publish_return_results() -> None:
-    cashflows = current_bitemporal(spark.table(f"{SILVER}.fact_cashflows"), "system_from_ts")
-    positions = current_bitemporal(spark.table(f"{SILVER}.fact_positions_daily"), "system_from_ts")
+    cashflows = current_bitemporal(spark.table(f"{SILVER}.fact_cashflows"), "system_from_ts").where(
+        F.col("cashflow_yyyymm") == F.lit(TARGET_YYYYMM)
+    )
+    positions = current_bitemporal(spark.table(f"{SILVER}.fact_positions_daily"), "system_from_ts").where(
+        F.col("position_yyyymm") == F.lit(TARGET_YYYYMM)
+    )
 
     bounds = positions.groupBy("portfolio_sk").agg(
         F.min("position_dt").alias("beginning_dt"),
@@ -189,7 +207,8 @@ def publish_return_results() -> None:
         beginning_value.join(terminal_value, "portfolio_sk", "inner")
         .withColumn("years_held", F.datediff("valuation_dt", "beginning_dt") / F.lit(365.25))
         .withColumn("cagr", F.pow(F.col("ending_value") / F.col("beginning_value"), 1 / F.col("years_held")) - 1)
-        .select("portfolio_sk", "beginning_dt", "valuation_dt", "beginning_value", "ending_value", "years_held", "cagr")
+        .withColumn("result_yyyymm", F.lit(TARGET_YYYYMM))
+        .select("portfolio_sk", "beginning_dt", "valuation_dt", "beginning_value", "ending_value", "years_held", "cagr", "result_yyyymm")
     )
     cagr_results.write.format("delta").mode("overwrite").saveAsTable(f"{GOLD}.performance_cagr_results")
 
@@ -211,8 +230,8 @@ def publish_return_results() -> None:
         .withColumn("ordered_amounts", F.expr("transform(cashflow_series, x -> x.cashflow_amount)"))
     )
 
-    irr_results = irr_base.withColumn("irr", irr_udf(F.col("ordered_amounts"))).select("portfolio_sk", "irr")
-    xirr_results = irr_base.withColumn("xirr", xirr_udf(F.col("cashflow_series"))).select("portfolio_sk", "xirr")
+    irr_results = irr_base.withColumn("irr", irr_udf(F.col("ordered_amounts"))).withColumn("result_yyyymm", F.lit(TARGET_YYYYMM)).select("portfolio_sk", "irr", "result_yyyymm")
+    xirr_results = irr_base.withColumn("xirr", xirr_udf(F.col("cashflow_series"))).withColumn("result_yyyymm", F.lit(TARGET_YYYYMM)).select("portfolio_sk", "xirr", "result_yyyymm")
 
     irr_results.write.format("delta").mode("overwrite").saveAsTable(
         f"{GOLD}.performance_irr_results"
@@ -228,4 +247,4 @@ publish_var_results()
 publish_svar_results()
 publish_return_results()
 
-print("Gold calculations published.")
+print(f"Gold calculations published for target month {TARGET_YYYYMM}.")

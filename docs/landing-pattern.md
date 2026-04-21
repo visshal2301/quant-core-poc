@@ -62,6 +62,14 @@ Default POC behavior:
 
 This is good for a deterministic POC because it lets us rerun the same month and avoid stale mixed data.
 
+The same `YYYYMM` should be passed through:
+- mock data generation
+- Bronze ingestion
+- Silver transformation
+- Gold publishing
+
+This keeps scheduled workflows deterministic and makes monthly backfills easier to operate.
+
 ## Enterprise recommendation
 
 The `YYYYMM` folder pattern is a good idea.
