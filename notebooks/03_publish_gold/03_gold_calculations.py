@@ -1,9 +1,14 @@
 # Databricks notebook source
+# /// script
+# [tool.databricks.environment]
+# environment_version = "2"
+# ///
 # MAGIC %md
 # MAGIC # Quant Core - Gold Calculations
 
 # COMMAND ----------
 
+# DBTITLE 1,Setup and Utility Functions
 from datetime import date
 
 from pyspark.sql import functions as F
@@ -34,52 +39,136 @@ def current_bitemporal(df, business_col: str, system_col: str = "system_from_ts"
 
 
 def irr(values, guess=0.10, max_iterations=100, tolerance=1e-7):
-    rate = guess
-    for _ in range(max_iterations):
-        npv = 0.0
-        derivative = 0.0
-        for period_index, amount in enumerate(values):
-            npv += amount / ((1 + rate) ** period_index)
-            if period_index > 0:
-                derivative -= period_index * amount / ((1 + rate) ** (period_index + 1))
-        if abs(npv) < tolerance:
-            return float(rate)
-        if derivative == 0:
-            break
-        rate -= npv / derivative
-    return None
+    """Calculate IRR with overflow protection and validation."""
+    try:
+        # Validate input
+        if not values or len(values) < 2:
+            return None
+        
+        # Check for invalid patterns (all same sign)
+        positive_count = sum(1 for v in values if v > 0)
+        negative_count = sum(1 for v in values if v < 0)
+        
+        if positive_count == 0 or negative_count == 0:
+            return None  # IRR undefined for all same-sign cashflows
+        
+        rate = guess
+        # Rate bounds to prevent overflow: -99% to 10,000%
+        MIN_RATE = -0.99
+        MAX_RATE = 100.0
+        
+        for iteration in range(max_iterations):
+            # Bounds checking to prevent divergence
+            if rate < MIN_RATE or rate > MAX_RATE:
+                return None  # Rate out of reasonable bounds
+            
+            npv = 0.0
+            derivative = 0.0
+            
+            for period_index, amount in enumerate(values):
+                try:
+                    # Check if calculation will overflow before computing
+                    if period_index > 0 and abs(1 + rate) > 1e10:
+                        return None  # Prevent overflow
+                    
+                    power_term = (1 + rate) ** period_index
+                    npv += amount / power_term
+                    
+                    if period_index > 0:
+                        derivative -= period_index * amount / ((1 + rate) ** (period_index + 1))
+                except (OverflowError, ZeroDivisionError):
+                    return None  # Calculation overflow or division by zero
+            
+            if abs(npv) < tolerance:
+                return float(rate)
+            
+            if derivative == 0 or abs(derivative) < 1e-10:
+                break  # Derivative too small, cannot continue
+            
+            # Newton-Raphson step with damping for stability
+            rate_delta = npv / derivative
+            
+            # Limit step size to prevent wild jumps
+            max_step = 0.5
+            if abs(rate_delta) > max_step:
+                rate_delta = max_step if rate_delta > 0 else -max_step
+            
+            rate -= rate_delta
+        
+        return None  # Did not converge
+    except Exception:
+        return None  # Any other error
 
 
 def xirr(cashflow_series, guess=0.10, max_iterations=100, tolerance=1e-7):
-    parsed = sorted(
-        [(item["cashflow_dt"], float(item["cashflow_amount"])) for item in cashflow_series if item["cashflow_dt"] is not None],
-        key=lambda x: x[0],
-    )
-    if len(parsed) < 2:
-        return None
+    """Calculate XIRR with overflow protection and validation."""
+    try:
+        parsed = sorted(
+            [(item["cashflow_dt"], float(item["cashflow_amount"])) for item in cashflow_series if item["cashflow_dt"] is not None],
+            key=lambda x: x[0],
+        )
+        if len(parsed) < 2:
+            return None
+        
+        # Check for invalid patterns (all same sign)
+        positive_count = sum(1 for _, amount in parsed if amount > 0)
+        negative_count = sum(1 for _, amount in parsed if amount < 0)
+        
+        if positive_count == 0 or negative_count == 0:
+            return None  # XIRR undefined for all same-sign cashflows
 
-    start_dt = parsed[0][0]
-    if isinstance(start_dt, str):
-        start_dt = date.fromisoformat(start_dt)
+        start_dt = parsed[0][0]
+        if isinstance(start_dt, str):
+            start_dt = date.fromisoformat(start_dt)
 
-    def xnpv(rate):
-        total = 0.0
-        for cashflow_dt, amount in parsed:
-            dt = cashflow_dt if not isinstance(cashflow_dt, str) else date.fromisoformat(cashflow_dt)
-            year_fraction = (dt - start_dt).days / 365.25
-            total += amount / ((1 + rate) ** year_fraction)
-        return total
+        def xnpv(rate):
+            total = 0.0
+            for cashflow_dt, amount in parsed:
+                dt = cashflow_dt if not isinstance(cashflow_dt, str) else date.fromisoformat(cashflow_dt)
+                year_fraction = (dt - start_dt).days / 365.25
+                try:
+                    # Prevent overflow in power calculation
+                    if abs(1 + rate) > 1e10 or year_fraction * abs(rate) > 50:
+                        raise OverflowError
+                    total += amount / ((1 + rate) ** year_fraction)
+                except (OverflowError, ZeroDivisionError):
+                    return float('inf') if rate > 0 else float('-inf')
+            return total
 
-    rate = guess
-    for _ in range(max_iterations):
-        value = xnpv(rate)
-        if abs(value) < tolerance:
-            return float(rate)
-        derivative = (xnpv(rate + tolerance) - value) / tolerance
-        if derivative == 0:
-            break
-        rate -= value / derivative
-    return None
+        rate = guess
+        # Rate bounds to prevent overflow
+        MIN_RATE = -0.99
+        MAX_RATE = 100.0
+        
+        for _ in range(max_iterations):
+            if rate < MIN_RATE or rate > MAX_RATE:
+                return None  # Rate out of reasonable bounds
+            
+            value = xnpv(rate)
+            
+            if not (-1e15 < value < 1e15):  # Check for infinity or extreme values
+                return None
+            
+            if abs(value) < tolerance:
+                return float(rate)
+            
+            # Numerical derivative
+            derivative = (xnpv(rate + tolerance) - value) / tolerance
+            
+            if derivative == 0 or abs(derivative) < 1e-10 or not (-1e15 < derivative < 1e15):
+                break
+            
+            # Newton-Raphson step with damping
+            rate_delta = value / derivative
+            max_step = 0.5
+            if abs(rate_delta) > max_step:
+                rate_delta = max_step if rate_delta > 0 else -max_step
+            
+            rate -= rate_delta
+        
+        return None  # Did not converge
+    except Exception:
+        return None  # Any other error
 
 
 irr_udf = F.udf(lambda arr: irr([float(x) for x in arr]) if arr else None, DoubleType())

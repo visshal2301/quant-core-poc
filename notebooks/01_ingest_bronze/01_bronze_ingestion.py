@@ -84,8 +84,6 @@ if "dbutils" in globals():
 else:
     TARGET_YYYYMM = "202601"
 
-spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", "true")
-
 
 def resolve_monthly_path(dataset: str) -> str:
     return f"{LANDING_BASE}/{dataset}/{TARGET_YYYYMM}/*.csv"
@@ -136,8 +134,14 @@ def ingest_csv_to_bronze(source_path: str, target_table: str, expected_grain: st
         .withColumn("source_yyyymm", F.lit(TARGET_YYYYMM))
         .withColumn("expected_grain", F.lit(expected_grain))
         .withColumn("schema_drift_captured_ts", F.current_timestamp())
-        .withColumn("is_corrupt_record", F.col("_corrupt_record").isNotNull())
     )
+    
+    # Check if _corrupt_record column exists before referencing it
+    if "_corrupt_record" in df.columns:
+        df = df.withColumn("is_corrupt_record", F.col("_corrupt_record").isNotNull())
+    else:
+        df = df.withColumn("is_corrupt_record", F.lit(False))
+    
     drift_columns = [
         column_name
         for column_name in df.columns
