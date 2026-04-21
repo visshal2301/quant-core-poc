@@ -176,12 +176,13 @@ xirr_udf = F.udf(lambda arr: xirr(arr) if arr else None, DoubleType())
 
 
 def publish_var_results() -> None:
-    positions = current_bitemporal(spark.table(f"{SILVER}.fact_positions_daily"), "position_dt").where(
+    # Fact tables are immutable historical events - no bitemporal filtering needed
+    # Filter positions to TARGET_YYYYMM (we calculate risk for this month's positions)
+    positions = spark.table(f"{SILVER}.fact_positions_daily").where(
         F.col("position_yyyymm") == F.lit(TARGET_YYYYMM)
     )
-    prices = current_bitemporal(spark.table(f"{SILVER}.fact_market_prices_daily"), "system_from_ts").where(
-        F.col("price_yyyymm") == F.lit(TARGET_YYYYMM)
-    )
+    # NO monthly filter on prices - historical VaR simulation requires FULL return history
+    prices = spark.table(f"{SILVER}.fact_market_prices_daily")
 
     pnl_distribution = (
         positions.alias("p")
@@ -195,10 +196,14 @@ def publish_var_results() -> None:
             F.col("m.price_dt").alias("historical_dt"),
             (F.col("p.market_value") * F.col("m.return_pct")).alias("simulated_pnl"),
             F.col("p.market_value"),
+            F.col("p.position_yyyymm"),  # Add partition column
         )
     )
-    pnl_distribution.write.format("delta").mode("overwrite").saveAsTable(f"{GOLD}.risk_pnl_distribution")
+    # Partition-level overwrite: preserves historical months, replaces only TARGET_YYYYMM
+    pnl_distribution.write.format("delta").mode("overwrite").partitionBy("position_yyyymm").option("replaceWhere", f"position_yyyymm = '{TARGET_YYYYMM}'").saveAsTable(f"{GOLD}.risk_pnl_distribution")
 
+    # Collect all confidence level results first, then write once with replaceWhere
+    all_var_results = []
     for confidence_level in CONFIDENCE_LEVELS:
         results = (
             pnl_distribution.groupBy("portfolio_sk", "as_of_date", "business_as_of_ts", "system_as_of_ts")
@@ -225,8 +230,12 @@ def publish_var_results() -> None:
                 "var_pct_market_value",
             )
         )
-        write_mode = "overwrite" if confidence_level == CONFIDENCE_LEVELS[0] else "append"
-        results.write.format("delta").mode(write_mode).saveAsTable(f"{GOLD}.risk_var_results")
+        all_var_results.append(results)
+    
+    # Union all confidence levels and write once with partition-level overwrite
+    from functools import reduce
+    combined_var_results = reduce(lambda df1, df2: df1.unionByName(df2), all_var_results)
+    combined_var_results.write.format("delta").mode("overwrite").partitionBy("result_yyyymm").option("replaceWhere", f"result_yyyymm = '{TARGET_YYYYMM}'").saveAsTable(f"{GOLD}.risk_var_results")
 
 
 def publish_svar_results() -> None:
@@ -235,6 +244,8 @@ def publish_svar_results() -> None:
         & (F.col("historical_dt") <= F.to_date(F.lit(STRESS_WINDOW_END)))
     )
 
+    # Collect all confidence level results first, then write once with replaceWhere
+    all_svar_results = []
     for confidence_level in CONFIDENCE_LEVELS:
         results = (
             pnl_distribution.groupBy("portfolio_sk", "as_of_date", "business_as_of_ts", "system_as_of_ts")
@@ -261,15 +272,20 @@ def publish_svar_results() -> None:
                 "svar_pct_market_value",
             )
         )
-        write_mode = "overwrite" if confidence_level == CONFIDENCE_LEVELS[0] else "append"
-        results.write.format("delta").mode(write_mode).saveAsTable(f"{GOLD}.risk_svar_results")
+        all_svar_results.append(results)
+    
+    # Union all confidence levels and write once with partition-level overwrite
+    from functools import reduce
+    combined_svar_results = reduce(lambda df1, df2: df1.unionByName(df2), all_svar_results)
+    combined_svar_results.write.format("delta").mode("overwrite").partitionBy("result_yyyymm").option("replaceWhere", f"result_yyyymm = '{TARGET_YYYYMM}'").saveAsTable(f"{GOLD}.risk_svar_results")
 
 
 def publish_return_results() -> None:
-    cashflows = current_bitemporal(spark.table(f"{SILVER}.fact_cashflows"), "system_from_ts").where(
+    # Fact tables are immutable historical events - no bitemporal filtering needed
+    cashflows = spark.table(f"{SILVER}.fact_cashflows").where(
         F.col("cashflow_yyyymm") == F.lit(TARGET_YYYYMM)
     )
-    positions = current_bitemporal(spark.table(f"{SILVER}.fact_positions_daily"), "system_from_ts").where(
+    positions = spark.table(f"{SILVER}.fact_positions_daily").where(
         F.col("position_yyyymm") == F.lit(TARGET_YYYYMM)
     )
 
@@ -299,7 +315,8 @@ def publish_return_results() -> None:
         .withColumn("result_yyyymm", F.lit(TARGET_YYYYMM))
         .select("portfolio_sk", "beginning_dt", "valuation_dt", "beginning_value", "ending_value", "years_held", "cagr", "result_yyyymm")
     )
-    cagr_results.write.format("delta").mode("overwrite").saveAsTable(f"{GOLD}.performance_cagr_results")
+    # Partition-level overwrite: preserves historical months, replaces only TARGET_YYYYMM
+    cagr_results.write.format("delta").mode("overwrite").partitionBy("result_yyyymm").option("replaceWhere", f"result_yyyymm = '{TARGET_YYYYMM}'").saveAsTable(f"{GOLD}.performance_cagr_results")
 
     terminal_cashflow = terminal_value.select(
         "portfolio_sk",
@@ -322,13 +339,9 @@ def publish_return_results() -> None:
     irr_results = irr_base.withColumn("irr", irr_udf(F.col("ordered_amounts"))).withColumn("result_yyyymm", F.lit(TARGET_YYYYMM)).select("portfolio_sk", "irr", "result_yyyymm")
     xirr_results = irr_base.withColumn("xirr", xirr_udf(F.col("cashflow_series"))).withColumn("result_yyyymm", F.lit(TARGET_YYYYMM)).select("portfolio_sk", "xirr", "result_yyyymm")
 
-    irr_results.write.format("delta").mode("overwrite").saveAsTable(
-        f"{GOLD}.performance_irr_results"
-    )
-    xirr_results.write.format("delta").mode("overwrite").saveAsTable(
-        f"{GOLD}.performance_xirr_results"
-    )
-
+    # Partition-level overwrite: preserves historical months, replaces only TARGET_YYYYMM
+    irr_results.write.format("delta").mode("overwrite").partitionBy("result_yyyymm").option("replaceWhere", f"result_yyyymm = '{TARGET_YYYYMM}'").saveAsTable(f"{GOLD}.performance_irr_results")
+    xirr_results.write.format("delta").mode("overwrite").partitionBy("result_yyyymm").option("replaceWhere", f"result_yyyymm = '{TARGET_YYYYMM}'").saveAsTable(f"{GOLD}.performance_xirr_results")
 
 # COMMAND ----------
 

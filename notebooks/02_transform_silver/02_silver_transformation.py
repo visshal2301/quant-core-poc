@@ -172,20 +172,6 @@ def overwrite_static_dimension(source_df, table_name: str, business_key: str, su
 
 # COMMAND ----------
 
-# DBTITLE 1,Drop existing silver tables
-# Drop existing silver tables to recreate with proper schema
-tables_to_drop = [
-    "dim_portfolio", "dim_instrument", "dim_counterparty", 
-    "dim_currency", "dim_asset_class", "dim_market_data_source", "dim_date"
-]
-
-for table in tables_to_drop:
-    spark.sql(f"DROP TABLE IF EXISTS {SILVER}.{table}")
-    
-print("Existing silver dimension tables dropped.")
-
-# COMMAND ----------
-
 portfolio_source = (
     spark.table(f"{BRONZE}.portfolios_raw")
     .where(F.col("source_yyyymm") == F.lit(TARGET_YYYYMM))
@@ -281,6 +267,33 @@ dim_date.write.format("delta").mode("overwrite").saveAsTable(f"{SILVER}.dim_date
 
 # COMMAND ----------
 
+# DBTITLE 1,Drop Unpartitioned Tables (One-Time)
+# ========================================
+# ONE-TIME: Drop unpartitioned fact tables
+# ========================================
+# This cell should be run ONCE to drop the existing unpartitioned tables
+# After running this cell, cell 4 will recreate them with proper partitions
+# Comment out or delete this cell after running
+
+fact_tables = [
+    f"{SILVER}.fact_transactions",
+    f"{SILVER}.fact_positions_daily",
+    f"{SILVER}.fact_market_prices_daily",
+    f"{SILVER}.fact_cashflows"
+]
+
+print("Dropping unpartitioned fact tables...")
+for table_name in fact_tables:
+    if spark.catalog.tableExists(table_name):
+        spark.sql(f"DROP TABLE IF EXISTS {table_name}")
+        print(f"✅ Dropped {table_name}")
+    else:
+        print(f"⚠️ Table {table_name} does not exist")
+
+print("\n✅ All fact tables dropped. Run cell 4 to recreate with partitions.")
+
+# COMMAND ----------
+
 # DBTITLE 1,Cell 5
 # ========================================
 # SCHEMA EVOLUTION POLICY FOR SILVER LAYER
@@ -335,8 +348,8 @@ fact_transactions = (
     )
 )
 fact_transactions = apply_bitemporal_columns(fact_transactions, "trade_dt")
-# No schema evolution options - schema must match exactly
-fact_transactions.write.format("delta").mode("overwrite").saveAsTable(f"{SILVER}.fact_transactions")
+# Partition-level overwrite: preserves historical months, replaces only TARGET_YYYYMM
+fact_transactions.write.format("delta").mode("overwrite").partitionBy("trade_yyyymm").option("replaceWhere", f"trade_yyyymm = '{TARGET_YYYYMM}'").saveAsTable(f"{SILVER}.fact_transactions")
 
 fact_positions_daily = (
     spark.table(f"{BRONZE}.positions_daily_raw")
@@ -372,7 +385,8 @@ fact_positions_daily = apply_bitemporal_columns(
     "position_dt",
     F.expr("cast(position_dt + interval 1 day as timestamp)"),
 )
-fact_positions_daily.write.format("delta").mode("overwrite").saveAsTable(f"{SILVER}.fact_positions_daily")
+# Partition-level overwrite: preserves historical months, replaces only TARGET_YYYYMM
+fact_positions_daily.write.format("delta").mode("overwrite").partitionBy("position_yyyymm").option("replaceWhere", f"position_yyyymm = '{TARGET_YYYYMM}'").saveAsTable(f"{SILVER}.fact_positions_daily")
 
 fact_market_prices_daily = (
     spark.table(f"{BRONZE}.market_prices_daily_raw")
@@ -404,7 +418,8 @@ fact_market_prices_daily = apply_bitemporal_columns(
     "price_dt",
     F.expr("cast(price_dt + interval 1 day as timestamp)"),
 )
-fact_market_prices_daily.write.format("delta").mode("overwrite").saveAsTable(f"{SILVER}.fact_market_prices_daily")
+# Partition-level overwrite: preserves historical months, replaces only TARGET_YYYYMM
+fact_market_prices_daily.write.format("delta").mode("overwrite").partitionBy("price_yyyymm").option("replaceWhere", f"price_yyyymm = '{TARGET_YYYYMM}'").saveAsTable(f"{SILVER}.fact_market_prices_daily")
 
 fact_cashflows = (
     spark.table(f"{BRONZE}.cashflows_raw")
@@ -431,11 +446,13 @@ fact_cashflows = (
     )
 )
 fact_cashflows = apply_bitemporal_columns(fact_cashflows, "cashflow_dt")
-fact_cashflows.write.format("delta").mode("overwrite").saveAsTable(f"{SILVER}.fact_cashflows")
+# Partition-level overwrite: preserves historical months, replaces only TARGET_YYYYMM
+fact_cashflows.write.format("delta").mode("overwrite").partitionBy("cashflow_yyyymm").option("replaceWhere", f"cashflow_yyyymm = '{TARGET_YYYYMM}'").saveAsTable(f"{SILVER}.fact_cashflows")
 
 print(f"Silver dimensions and facts published with SCD2 for core dimensions for source month {TARGET_YYYYMM}.")
 print("\nHybrid approach implemented: Fact tables store both surrogate keys (for point-in-time) and natural keys (for current hierarchy).")
 print("\n⚠️ SCHEMA EVOLUTION POLICY: All future schema changes must use explicit ALTER TABLE statements.")
+print("\n✅ PARTITIONED TABLES: All fact tables are partitioned by YYYYMM for efficient partition-level overwrites.")
 
 # COMMAND ----------
 
