@@ -1,4 +1,4 @@
-project_name: quant_core
+scr project_name: quant_core
 catalog: quant_core
 schemas:
   landing: landing
