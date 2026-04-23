@@ -1,0 +1,24 @@
+bundle:
+  name: quant-core-poc
+
+include:
+  - resources/*.yml
+
+variables:
+  target_yyyymm:
+    description: Month to process in YYYYMM format
+    default: "202601"
+  catalog_name:
+    description: Unity Catalog catalog name
+    default: "quant_core"
+
+targets:
+  dev:
+    default: true
+    workspace:
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
+
+  prod:
+    workspace:
+      root_path: /Workspace/Shared/.bundle/${bundle.name}/${bundle.target}
+

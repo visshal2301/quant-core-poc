@@ -55,10 +55,52 @@ This enables:
 
 ## Enterprise refactor path
 
-This starter is notebook-first by design. The next step is to move reusable logic from notebooks into a repo structure:
+This starter is notebook-first by design. The reusable code is now being organized into a repo structure:
 - `src/quant_core/ingestion`
 - `src/quant_core/transforms`
 - `src/quant_core/calculations`
 - `tests/unit`
 - `tests/integration`
-- CI/CD deployment assets
+- `CI/CD deployment assets` as the next follow-on step
+
+## Repo structure
+
+```text
+quant-core-poc/
+  src/
+    quant_core/
+      ingestion/
+      transforms/
+      calculations/
+  tests/
+    unit/
+    integration/
+  notebooks/
+  scripts/
+  docs/
+  config/
+```
+
+Current refactor status:
+- `scripts/generate_mock_data.py` is now a thin entry point over `src/quant_core/ingestion/mock_data.py`
+- shared pure functions for finance logic live in `src/quant_core/calculations/finance.py`
+- shared ingestion/transform helpers are scaffolded under `src/quant_core/ingestion` and `src/quant_core/transforms`
+- repo modules are now being split by table/domain, for example:
+  - `src/quant_core/transforms/dimensions/dim_portfolio.py` equivalent structure via `dimensions/portfolio.py`
+  - `src/quant_core/transforms/facts/transactions.py`
+  - `src/quant_core/calculations/risk/var.py`
+  - `src/quant_core/calculations/performance/irr.py`
+- notebooks remain the orchestration layer for Databricks execution today
+
+Next steps after this refactor:
+- replace more notebook-local code with direct imports from `src/quant_core/...`
+- add Databricks workflow/job definitions for monthly scheduling
+- add CI/CD assets for test, package, and deployment promotion
+
+## Scheduling and CI/CD
+
+Scheduling and CI/CD scaffolding are now started:
+- Databricks Asset Bundle entry: [databricks.yml](C:\Users\DELL\Documents\Codex\2026-04-19-i-am-createing-a-poc-on\quant-core-poc\databricks.yml)
+- Job definition: [resources/quant_core_job.yml](C:\Users\DELL\Documents\Codex\2026-04-19-i-am-createing-a-poc-on\quant-core-poc\resources\quant_core_job.yml)
+- GitHub Actions CI: [.github/workflows/ci.yml](C:\Users\DELL\Documents\Codex\2026-04-19-i-am-createing-a-poc-on\quant-core-poc\.github\workflows\ci.yml)
+- Operating note: [docs/scheduling-and-cicd.md](C:\Users\DELL\Documents\Codex\2026-04-19-i-am-createing-a-poc-on\quant-core-poc\docs\scheduling-and-cicd.md)

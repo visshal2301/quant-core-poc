@@ -71,7 +71,18 @@
 # COMMAND ----------
 
 # DBTITLE 1,Cell 2
+import os
+import sys
+
 from pyspark.sql import functions as F
+
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__)) if "__file__" in globals() else os.getcwd()
+REPO_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, "..", ".."))
+SRC_ROOT = os.path.join(REPO_ROOT, "src")
+if SRC_ROOT not in sys.path:
+    sys.path.insert(0, SRC_ROOT)
+
+from quant_core.ingestion.runtime import run_bronze_ingestion
 
 CATALOG = "quant_core"
 BRONZE_SCHEMA = f"{CATALOG}.bronze"
@@ -84,107 +95,7 @@ if "dbutils" in globals():
 else:
     TARGET_YYYYMM = "202601"
 
-
-def resolve_monthly_path(dataset: str) -> str:
-    return f"{LANDING_BASE}/{dataset}/{TARGET_YYYYMM}/*.csv"
-
-
-def resolve_dimension_path(table_name: str) -> str:
-    return f"{LANDING_BASE}/dimensions/{TARGET_YYYYMM}/{table_name}.csv"
-
-
-def table_exists(table_name: str) -> bool:
-    return spark.catalog.tableExists(f"{BRONZE_SCHEMA}.{table_name}")
-
-
-def align_to_existing_bronze_schema(df, target_table: str):
-    if not table_exists(target_table):
-        return df
-
-    target_df = spark.table(f"{BRONZE_SCHEMA}.{target_table}")
-    target_columns = target_df.columns
-    source_columns = df.columns
-
-    for column_name in target_columns:
-        if column_name not in source_columns:
-            target_type = target_df.schema[column_name].dataType
-            df = df.withColumn(column_name, F.lit(None).cast(target_type))
-
-    return df.select(*sorted(df.columns))
-
-
-def ingest_csv_to_bronze(source_path: str, target_table: str, expected_grain: str) -> None:
-    df = (
-        spark.read.format("csv")
-        .option("header", "true")
-        .option("inferSchema", "true")
-        .option("mode", "PERMISSIVE")
-        .option("columnNameOfCorruptRecord", "_corrupt_record")
-        .load(source_path)
-        .withColumn("ingestion_ts", F.current_timestamp())
-        .withColumn("source_file_path", F.col("_metadata.file_path"))
-        .withColumn("source_file_name", F.element_at(F.split(F.col("_metadata.file_path"), "/"), -1))
-        .withColumn("load_id", F.date_format(F.current_timestamp(), "yyyyMMddHHmmss"))
-        .withColumn("record_hash", F.sha2(F.to_json(F.struct("*")), 256))
-        .withColumn("system_from_ts", F.current_timestamp())
-        .withColumn("system_to_ts", F.to_timestamp(F.lit(OPEN_ENDED_TS)))
-        .withColumn("record_version", F.lit(1))
-        .withColumn("change_type", F.lit("INSERT"))
-        .withColumn("is_current_system", F.lit(True))
-        .withColumn("source_yyyymm", F.lit(TARGET_YYYYMM))
-        .withColumn("expected_grain", F.lit(expected_grain))
-        .withColumn("schema_drift_captured_ts", F.current_timestamp())
-    )
-    
-    # Check if _corrupt_record column exists before referencing it
-    if "_corrupt_record" in df.columns:
-        df = df.withColumn("is_corrupt_record", F.col("_corrupt_record").isNotNull())
-    else:
-        df = df.withColumn("is_corrupt_record", F.lit(False))
-    
-    drift_columns = [
-        column_name
-        for column_name in df.columns
-        if column_name
-        not in {
-            "_corrupt_record",
-            "ingestion_ts",
-            "source_file_path",
-            "source_file_name",
-            "load_id",
-            "record_hash",
-            "system_from_ts",
-            "system_to_ts",
-            "record_version",
-            "change_type",
-            "is_current_system",
-            "source_yyyymm",
-            "expected_grain",
-            "schema_drift_captured_ts",
-            "is_corrupt_record",
-        }
-    ]
-    df = df.withColumn("source_column_list", F.array_sort(F.array(*[F.lit(column_name) for column_name in drift_columns])))
-    df = align_to_existing_bronze_schema(df, target_table)
-    (
-        df.write.format("delta")
-        .option("mergeSchema", "true")
-        .mode("overwrite")
-        .saveAsTable(f"{BRONZE_SCHEMA}.{target_table}")
-    )
-
-# COMMAND ----------
-
-ingest_csv_to_bronze(resolve_monthly_path("transactions"), "transactions_raw", "transaction")
-ingest_csv_to_bronze(resolve_monthly_path("positions_daily"), "positions_daily_raw", "daily_position")
-ingest_csv_to_bronze(resolve_monthly_path("market_prices_daily"), "market_prices_daily_raw", "daily_market_price")
-ingest_csv_to_bronze(resolve_monthly_path("cashflows"), "cashflows_raw", "cashflow")
-ingest_csv_to_bronze(resolve_dimension_path("portfolios"), "portfolios_raw", "dimension_snapshot")
-ingest_csv_to_bronze(resolve_dimension_path("instruments"), "instruments_raw", "dimension_snapshot")
-ingest_csv_to_bronze(resolve_dimension_path("counterparties"), "counterparties_raw", "dimension_snapshot")
-ingest_csv_to_bronze(resolve_dimension_path("currencies"), "currencies_raw", "dimension_snapshot")
-ingest_csv_to_bronze(resolve_dimension_path("asset_classes"), "asset_classes_raw", "dimension_snapshot")
-ingest_csv_to_bronze(resolve_dimension_path("market_data_sources"), "market_data_sources_raw", "dimension_snapshot")
+run_bronze_ingestion(spark=spark, target_yyyymm=TARGET_YYYYMM, catalog=CATALOG, landing_base=LANDING_BASE)
 
 print(f"Bronze ingestion complete for source month {TARGET_YYYYMM}.")
 
