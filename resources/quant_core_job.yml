@@ -6,13 +6,13 @@ resources:
       tasks:
         - task_key: environment_setup
           notebook_task:
-            notebook_path: ./notebooks/00_setup/00_environment_setup.py
+            notebook_path: ../notebooks/00_setup/00_environment_setup.py
 
         - task_key: bronze_ingestion
           depends_on:
             - task_key: environment_setup
           notebook_task:
-            notebook_path: ./notebooks/01_ingest_bronze/01_bronze_ingestion.py
+            notebook_path: ../notebooks/01_ingest_bronze/01_bronze_ingestion.py
             base_parameters:
               target_yyyymm: ${var.target_yyyymm}
 
@@ -20,7 +20,7 @@ resources:
           depends_on:
             - task_key: bronze_ingestion
           notebook_task:
-            notebook_path: ./notebooks/02_transform_silver/02_silver_transformation.py
+            notebook_path: ../notebooks/02_transform_silver/02_silver_transformation.py
             base_parameters:
               target_yyyymm: ${var.target_yyyymm}
 
@@ -28,11 +28,10 @@ resources:
           depends_on:
             - task_key: silver_transformation
           notebook_task:
-            notebook_path: ./notebooks/03_publish_gold/03_gold_calculations.py
+            notebook_path: ../notebooks/03_publish_gold/03_gold_calculations.py
             base_parameters:
               target_yyyymm: ${var.target_yyyymm}
 
       parameters:
         - name: target_yyyymm
           default: ${var.target_yyyymm}
-

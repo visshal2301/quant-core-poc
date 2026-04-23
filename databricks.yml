@@ -12,6 +12,13 @@ variables:
     description: Unity Catalog catalog name
     default: "quant_core"
 
+# Sync notebooks and source code to workspace
+sync:
+  include:
+    - "notebooks/**/*.py"
+    - "src/**/*.py"
+    - "config/**/*.yaml"
+
 targets:
   dev:
     default: true
@@ -21,4 +28,3 @@ targets:
   prod:
     workspace:
       root_path: /Workspace/Shared/.bundle/${bundle.name}/${bundle.target}
-
