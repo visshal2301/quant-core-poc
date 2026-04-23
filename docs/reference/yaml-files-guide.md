@@ -700,6 +700,6 @@ ERROR: No module named 'pytest'
 **Last Updated:** April 2026  
 **Author:** Quant Core Team  
 **Related Documents:**
-* [Project Analysis & Recommendations](./project-analysis-and-recommendations.md)
-* [Scheduling and CI/CD](./scheduling-and-cicd.md)
-* [Solution Architecture](./solution-architecture.md)
+* [Project Analysis & Recommendations](../reviews/project-analysis-and-recommendations.md)
+* [Scheduling and CI/CD](../operations/scheduling-and-cicd.md)
+* [Solution Architecture](../architecture/solution-architecture.md)

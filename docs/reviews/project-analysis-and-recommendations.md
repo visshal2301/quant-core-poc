@@ -531,7 +531,7 @@ quant-core-poc/
 **Impact:** Silver fact tables could accumulate duplicates or lose historical data  
 **Status:** ✅ Fixed and validated  
 
-**Details:** See [partition-replacement-fix.md](./partition-replacement-fix.md)
+**Details:** See [partition-replacement-fix.md](../operations/partition-replacement-fix.md)
 
 **Summary:**
 * **Problem:** Assumed `source_yyyymm == event_yyyymm` (not always true)
@@ -1024,8 +1024,8 @@ The **Quant Core POC** is a **production-quality** financial analytics platform 
 * **Authors:** Quant Core Team
 * **Classification:** Internal - Technical Documentation
 * **Related Documents:**
-  * [Solution Architecture](./solution-architecture.md)
-  * [Partition Replacement Fix](./partition-replacement-fix.md)
-  * [Business Data Model Guide](./business-data-model-guide.md)
-  * [Landing Pattern](./landing-pattern.md)
-  * [Scheduling and CI/CD](./scheduling-and-cicd.md)
+  * [Solution Architecture](../architecture/solution-architecture.md)
+  * [Partition Replacement Fix](../operations/partition-replacement-fix.md)
+  * [Business Data Model Guide](../architecture/business-data-model-guide.md)
+  * [Landing Pattern](../operations/landing-pattern.md)
+  * [Scheduling and CI/CD](../operations/scheduling-and-cicd.md)

@@ -24,18 +24,19 @@ The POC uses:
 * Full audit trail with lineage tracking
 * Critical partition replacement issue fixed
 
-**See:** [Project Analysis & Recommendations](docs/project-analysis-and-recommendations.md) for comprehensive assessment
+**See:** [Project Analysis & Recommendations](docs/reviews/project-analysis-and-recommendations.md) for comprehensive assessment
 
 ## Deliverables
 
 ### Core Documentation
-- **Architecture and solution design**: [docs/solution-architecture.md](docs/solution-architecture.md)
-- **Project analysis and recommendations**: [docs/project-analysis-and-recommendations.md](docs/project-analysis-and-recommendations.md) ⭐ NEW
-- **Partition replacement fix**: [docs/partition-replacement-fix.md](docs/partition-replacement-fix.md) ⭐ NEW
-- **Business data model guide**: [docs/business-data-model-guide.md](docs/business-data-model-guide.md)
-- **Presentation-ready summary**: [docs/presentation-outline.md](docs/presentation-outline.md)
-- **Landing-folder and enterprise-pattern note**: [docs/landing-pattern.md](docs/landing-pattern.md)
-- **Scheduling and CI/CD**: [docs/scheduling-and-cicd.md](docs/scheduling-and-cicd.md)
+- **Docs home**: [docs/README.md](docs/README.md)
+- **Architecture and solution design**: [docs/architecture/solution-architecture.md](docs/architecture/solution-architecture.md)
+- **Business data model guide**: [docs/architecture/business-data-model-guide.md](docs/architecture/business-data-model-guide.md)
+- **Landing-folder and enterprise-pattern note**: [docs/operations/landing-pattern.md](docs/operations/landing-pattern.md)
+- **Partition replacement fix**: [docs/operations/partition-replacement-fix.md](docs/operations/partition-replacement-fix.md)
+- **Scheduling and CI/CD**: [docs/operations/scheduling-and-cicd.md](docs/operations/scheduling-and-cicd.md)
+- **Presentation-ready summary**: [docs/presentations/presentation-outline.md](docs/presentations/presentation-outline.md)
+- **Project analysis and recommendations**: [docs/reviews/project-analysis-and-recommendations.md](docs/reviews/project-analysis-and-recommendations.md)
 
 ### Configuration & Scripts
 - **Runtime configuration**: [config/quant_core_config.yaml](config/quant_core_config.yaml)
@@ -116,7 +117,7 @@ replace_condition = f"trade_yyyymm IN ({','.join([repr(p) for p in affected_part
 df.write.option("replaceWhere", replace_condition).saveAsTable(...)
 ```
 
-**See:** [Partition Replacement Fix](docs/partition-replacement-fix.md) for detailed explanation
+**See:** [Partition Replacement Fix](docs/operations/partition-replacement-fix.md) for detailed explanation
 
 ### History and drift handling
 
@@ -192,7 +193,7 @@ Scheduling and CI/CD scaffolding are started:
 - **Databricks Asset Bundle**: [databricks.yml](databricks.yml)
 - **Job definition**: [resources/quant_core_job.yml](resources/quant_core_job.yml)
 - **GitHub Actions CI**: [.github/workflows/ci.yml](.github/workflows/ci.yml)
-- **Operating guide**: [docs/scheduling-and-cicd.md](docs/scheduling-and-cicd.md)
+- **Operating guide**: [docs/operations/scheduling-and-cicd.md](docs/operations/scheduling-and-cicd.md)
 
 ## Recent Updates (April 2026)
 
@@ -209,8 +210,8 @@ Scheduling and CI/CD scaffolding are started:
 * Detailed recommendations for next steps
 
 **See:**
-* [Partition Replacement Fix Documentation](docs/partition-replacement-fix.md)
-* [Project Analysis & Recommendations](docs/project-analysis-and-recommendations.md)
+* [Partition Replacement Fix Documentation](docs/operations/partition-replacement-fix.md)
+* [Project Analysis & Recommendations](docs/reviews/project-analysis-and-recommendations.md)
 
 ## Key Features
 

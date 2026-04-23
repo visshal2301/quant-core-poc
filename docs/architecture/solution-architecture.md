@@ -485,8 +485,20 @@ quant-core-poc/
   config/
     quant_core_config.yaml
   docs/
-    solution-architecture.md
-    presentation-outline.md
+    README.md
+    architecture/
+      solution-architecture.md
+      business-data-model-guide.md
+    operations/
+      landing-pattern.md
+      partition-replacement-fix.md
+      scheduling-and-cicd.md
+    presentations/
+      presentation-outline.md
+    reference/
+      yaml-files-guide.md
+    reviews/
+      project-analysis-and-recommendations.md
   notebooks/
     00_setup/
       00_environment_setup.py
