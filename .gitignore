@@ -21,3 +21,6 @@ dist/
 # OS
 .DS_Store
 Thumbs.db
+
+# GitHub Actions workflows (add these later with proper token)
+.github/workflows/

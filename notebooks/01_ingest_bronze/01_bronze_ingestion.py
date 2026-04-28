@@ -90,7 +90,7 @@ LANDING_BASE = "/Volumes/quant_core/landing/mock_data"
 OPEN_ENDED_TS = "9999-12-31 23:59:59"
 
 if "dbutils" in globals():
-    dbutils.widgets.text("target_yyyymm", "202603")
+    dbutils.widgets.text("target_yyyymm", "202601")
     TARGET_YYYYMM = dbutils.widgets.get("target_yyyymm")
 else:
     TARGET_YYYYMM = "202601"

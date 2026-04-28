@@ -1,37 +1,73 @@
 resources:
   jobs:
     quant_core_monthly_pipeline:
-      name: quant_core_monthly_pipeline_${bundle.target}
+      name: "Bronze Ingestion Pipeline - ${bundle.target}"
+      
       max_concurrent_runs: 1
+      timeout_seconds: 0
+      
+      # Job-level parameters
+      parameters:
+        - name: yyyymm
+          default: ${var.target_yyyymm}
+        - name: repo_root
+          default: /Workspace/Users/${workspace.current_user.userName}/quant-core-poc
+      
+      # Environment configuration
+      environments:
+        - environment_key: default
+          spec:
+            environment_version: "2"
+      
+      # Task definitions
       tasks:
-        - task_key: environment_setup
-          notebook_task:
-            notebook_path: ../notebooks/00_setup/00_environment_setup.py
-
+        # Task 1: Generate mock data
+        - task_key: generate_mock_data
+          environment_key: default
+          spark_python_task:
+            python_file: ../scripts/generate_mock_data.py
+            parameters:
+              - "--yyyymm"
+              - "{{job.parameters.yyyymm}}"
+          timeout_seconds: 0
+          email_notifications: {}
+          run_if: ALL_SUCCESS
+        
+        # Task 2: Bronze layer ingestion
         - task_key: bronze_ingestion
           depends_on:
-            - task_key: environment_setup
+            - task_key: generate_mock_data
+          environment_key: default
           notebook_task:
-            notebook_path: ../notebooks/01_ingest_bronze/01_bronze_ingestion.py
+            notebook_path: ../notebooks/01_ingest_bronze/01_bronze_ingestion
+            source: WORKSPACE
             base_parameters:
-              target_yyyymm: ${var.target_yyyymm}
-
+              target_yyyymm: "{{job.parameters.yyyymm}}"
+          timeout_seconds: 0
+          email_notifications: {}
+          run_if: ALL_SUCCESS
+        
+        # Task 3: Silver layer transformation
         - task_key: silver_transformation
           depends_on:
             - task_key: bronze_ingestion
+          environment_key: default
           notebook_task:
-            notebook_path: ../notebooks/02_transform_silver/02_silver_transformation.py
+            notebook_path: ../notebooks/02_transform_silver/02_silver_transformation
+            source: WORKSPACE
             base_parameters:
-              target_yyyymm: ${var.target_yyyymm}
-
-        - task_key: gold_calculations
-          depends_on:
-            - task_key: silver_transformation
-          notebook_task:
-            notebook_path: ../notebooks/03_publish_gold/03_gold_calculations.py
-            base_parameters:
-              target_yyyymm: ${var.target_yyyymm}
-
-      parameters:
-        - name: target_yyyymm
-          default: ${var.target_yyyymm}
+              target_yyyymm: "{{job.parameters.yyyymm}}"
+          timeout_seconds: 0
+          email_notifications: {}
+          run_if: ALL_SUCCESS
+      
+      # Email notifications
+      email_notifications:
+        no_alert_for_skipped_runs: false
+      
+      # Queue configuration
+      queue:
+        enabled: true
+      
+      # Performance target
+      performance_target: PERFORMANCE_OPTIMIZED
